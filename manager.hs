@@ -5,16 +5,17 @@ module Manager (
 import System.Directory
 import System.FilePath
 import Photo
+import Data.Time
 
 -- возвращает директорию с фотографиями, считывая ее путь из файла настроек
 picturesDir :: IO FilePath
 picturesDir = 
-    getAppUserDataDirectory "photosort" >>= createAndSet >> (readDefault "pictures" "Pictures") >>= return
+    getAppUserDataDirectory "photosort" >>= createIfNull >>= (readDefault "Pictures" . (`combine` "pictures")) >>= return
     where
-        --создаем директорию, если нужно, и устанавливаем её текущей
-        createAndSet appDir = createDirectoryIfMissing True appDir >> (setCurrentDirectory appDir)
+        --создаем директорию, если нужно
+        createIfNull appDir = createDirectoryIfMissing True appDir >> (return appDir)
         --проверяем, существует ли данный файл
-        readDefault fileName def = doesFileExist fileName >>= (readSafe fileName def)
+        readDefault def fileName = doesFileExist fileName >>= (readSafe fileName def)
         --если не существует, создаем его и пишем туда дефолтное значение
         readSafe fileName def False = do
             home <- getHomeDirectory
@@ -27,24 +28,24 @@ picturesDir =
 --рекурсивная обработка всех каталогов
 processDirectory :: FilePath -> IO ()
 processDirectory dir = 
-    getDirectoryContents >>= checkItems >>= (mapM_ processSingle)
+    getDirectoryContents dir >>= checkItems . filter ( ((/=) '.') . head ) >>= (mapM_ processSingle)
     where
         --по заданному списку содержимого каталога возвращаем кортежи с маркером "каталог" для каждого элемента
         checkItems xs = mapM singleCheck xs
             where
-                singleCheck path = (doesDirectoryExist path) >>= (\isDirectory -> return (path, isDirectory))
+                singleCheck path = (doesDirectoryExist path) >>= (\isDirectory -> return (dir </> path, isDirectory))
         --обработка элемента: если каталог - входим в рекурсию, иначе обрабатываем фотографию
-        processSingle (path, True) = processDirecotry path
+        processSingle (path, True) = processDirectory path
         processSingle (path, False) = do
             pictures <- picturesDir
             --ловим экзепшн, ведь возможно этот файл вовсе не фотография
             maybeDate <- catch (getTime path) nothing
             copyPhoto pictures maybeDate
                 where
-                    nothing _ = Nothing
+                    nothing x = return Nothing
                     -- безопасное копирование
                     copyPhoto pictures Nothing = return ()
                     copyPhoto pictures (Just date) = do
-                        let newPath = pictures </> (show date)
+                        let newPath = addTrailingPathSeparator $ pictures </> (show date)
                         createDirectoryIfMissing True newPath
-                        copyFile path newPath
+                        copyFile path (newPath </> (takeFileName path))
