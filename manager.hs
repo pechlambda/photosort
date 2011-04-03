@@ -32,9 +32,9 @@ processDirectory dir =
     getDirectoryContents dir >>= checkItems . filter ( ((/=) '.') . head ) >>= (mapM_ processSingle)
     where
         --по заданному списку содержимого каталога возвращаем кортежи с маркером "каталог" для каждого элемента
-        checkItems xs = mapM singleCheck xs
+        checkItems xs = mapM (singleCheck . (dir </>)) xs
             where
-                singleCheck path = (doesDirectoryExist path) >>= (\isDirectory -> return (dir </> path, isDirectory))
+                singleCheck path = (doesDirectoryExist path) >>= (\isDirectory -> return (path, isDirectory))
         --обработка элемента: если каталог - входим в рекурсию, иначе обрабатываем фотографию
         processSingle (path, True) = processDirectory path
         processSingle (path, False) = do
