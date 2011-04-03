@@ -6,6 +6,7 @@ import System.Directory
 import System.FilePath
 import Photo
 import Data.Time
+import System.Locale
 
 -- возвращает директорию с фотографиями, считывая ее путь из файла настроек
 picturesDir :: IO FilePath
@@ -46,6 +47,6 @@ processDirectory dir =
                     -- безопасное копирование
                     copyPhoto pictures Nothing = return ()
                     copyPhoto pictures (Just date) = do
-                        let newPath = addTrailingPathSeparator $ pictures </> (show date)
+                        let newPath = addTrailingPathSeparator $ pictures </> (formatTime defaultTimeLocale "%Y/%B/%d" date)
                         createDirectoryIfMissing True newPath
                         copyFile path (newPath </> (takeFileName path))
